@@ -10,24 +10,16 @@
         android:layout_height="match_parent"
         tools:context="sqrtstudio.com.fitwalker.Main" />
 
-    <Button
-        android:layout_height="wrap_content"
+    <Button android:layout_width="70dp"
+        android:layout_height="70dp"
         android:background="@drawable/prof"
-        android:id="@+id/button1"
-        android:layout_width="wrap_content"
-        android:layout_marginRight="11dp"
-        android:layout_marginEnd="11dp"
-        android:layout_marginBottom="25dp"
-        android:onClick="toProfile"
         android:layout_alignParentBottom="true"
         android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
-        android:layout_marginLeft="284dp"
-        android:layout_marginStart="284dp"
-        android:layout_marginTop="487dp"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true" />
+        android:id="@+id/button2"
+        android:onClick="toProfile"
+        android:paddingBottom="5dp"
+        android:paddingRight="5dp"/>
 </RelativeLayout>
 
 

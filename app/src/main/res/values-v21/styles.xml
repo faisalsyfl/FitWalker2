@@ -16,6 +16,7 @@
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/redDark</item>
     </style>
+
     <style name="ProfileTheme" parent="@style/AppTheme">
         <!-- Customize your theme here. -->
         <item name="android:colorPrimary">@color/red</item>

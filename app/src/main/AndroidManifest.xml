@@ -9,17 +9,16 @@
     -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <!--<uses-permission android:name="android.permission.INTERNET" />-->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
-
+    <!-- <uses-permission android:name="android.permission.INTERNET" /> -->
     <application
         android:name=".AppController"
         android:allowBackup="true"
         android:icon="@mipmap/iconfit"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme"
-        >
+        android:theme="@style/AppTheme">
 
         <!--
              The API key for Google Maps-based APIs is defined as a string resource.
@@ -42,8 +41,11 @@
         </activity>
         <activity
             android:name=".Main"
-            android:label="@string/title_activity_main"></activity>
-        <activity android:name=".Profile"></activity>
+            android:label="@string/title_activity_main" />
+        <activity android:name=".Profile" />
+        <activity android:name=".InfoWindow" />
+        <activity android:name=".FullScreen" />
+        <activity android:name=".AddShake"></activity>
     </application>
 
 </manifest>

@@ -66,7 +66,7 @@ public class DbFitWalker{
                 data.lat = Double.parseDouble(cursor.getString(2));
                 data.lng = Double.parseDouble(cursor.getString(3));
                 data.point = Integer.parseInt(cursor.getString(4));
-                Log.d("cursor",cursor.getString(2)+" -- "+ cursor.getString(3));
+//                Log.d("cursor",cursor.getString(2)+" -- "+ cursor.getString(3));
                 tabList.add(data);
             } while (cursor.moveToNext());
         }

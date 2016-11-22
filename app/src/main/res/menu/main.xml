@@ -6,6 +6,8 @@
         app:showAsAction="ifRoom"
         android:icon="@android:drawable/ic_menu_share"
         android:id="@+id/mShare" />
+    <item android:title="Add Friend"
+        android:id="@+id/mAdd" />
     <item android:title="Setting"
         android:id="@+id/mSetting" />
 </menu>

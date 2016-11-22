@@ -1,13 +1,20 @@
 package sqrtstudio.com.fitwalker;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.AsyncTask;
+import android.os.Vibrator;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -44,6 +51,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -68,17 +76,29 @@ import static sqrtstudio.com.fitwalker.AppConfig.TAG;
 import static sqrtstudio.com.fitwalker.AppConfig.VICINITY;
 import static sqrtstudio.com.fitwalker.AppConfig.ZERO_RESULTS;
 
-public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener,LocationListener {
+public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener,LocationListener{
 
     private static final int MY_PERMISSIONS_REQUEST = 99;//int bebas, maks 1 byte
+
+
     private GoogleMap mMap;
     private LatLng origin;
     private Marker me;
     GoogleApiClient mGoogleApiClient;
     LocationRequest mLocationRequest;
     private ArrayList<Marker> mMarkerArray = new ArrayList<Marker>();
+    private ArrayList<Marker> gMarker = new ArrayList<Marker>();
     LocationManager locManager;
 
+    public static class Places{
+        public String desc;
+        public String add;
+
+        Places(String a, String b){
+            desc = a;
+            add = b;
+        }
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -95,10 +115,28 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
         }
         buildGoogleApiClient();
         createLocationRequest();
+
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+    }
+    public void toInfoWindow(Marker m){
+        Places as = (Places)m.getTag();
+        Intent i = new Intent(this,InfoWindow.class);
+        i.putExtra("namap",as.desc);
+        i.putExtra("namaa",as.add);
+        if(m.getSnippet() == null){
+            i.putExtra("visited","not");
+        }else{
+            i.putExtra("visited","yes");
+        }
+        i.putExtra("cat","shake");
+        Vibrator az = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
+        // Vibrate for 500 milliseconds
+        az.vibrate(1000);
+        startActivity(i);
 
     }
     protected void createLocationRequest(){
@@ -192,7 +230,6 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
         me = mMap.addMarker(new MarkerOptions().position(new LatLng(location.getLatitude(),location.getLongitude())).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.current)));
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(),location.getLongitude()),17));
         handleNewLocation(location);
-
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient,mLocationRequest,this);
     }
 
@@ -202,6 +239,19 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+
+
+
+    @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
     }
@@ -209,6 +259,7 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
 //        Toast.makeText(getBaseContext(), String.valueOf((float)((double) Math.round(perpindahan*100)/100))+"---"+String.valueOf(sp.getFloat("dist",0)), Toast.LENGTH_LONG).show();
         mMap.clear();
         origin = new LatLng(location.getLatitude(),location.getLongitude());
+
         MarkerOptions mo = new MarkerOptions().position(origin).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.current));
         me =  mMap.addMarker(mo);
 
@@ -218,7 +269,6 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
 //        loadNearByPlaces(origin.latitude,origin.longitude,"cafe");
 //        loadNearByPlaces(origin.latitude,origin.longitude,"school");
         loadNearByPlaces(origin.latitude,origin.longitude,"mosque");
-
         mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
             public boolean onMarkerClick(Marker marker) {
@@ -228,22 +278,34 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
                 return false;
             }
         });
+
 //        Log.d("Distance", String.valueOf(distance(location.getLatitude(),destination.latitude,location.getLongitude(),destination.longitude,0,0)));
     }
+
     @Override
     public void onLocationChanged(Location location) {
+        mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
+            @Override
+            public void onInfoWindowClick(Marker marker) {
+                toInfoWindow(marker);
 
+            }
+        });
 //        currentPos.setPosition(new LatLng(location.getLatitude(),location.getLongitude()));
         for(Marker marker : mMarkerArray){
 //            Log.d("DIST",String.valueOf(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude)));
-            if(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude) <= 35){
+            if(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude) <= 65){
                 DbFitWalker db = new DbFitWalker(getApplicationContext());
                 db.open();
                 db.insertNew("Visited",marker.getPosition().latitude,marker.getPosition().longitude,0);
                 Log.d("INSERTED",String.valueOf(marker.getPosition().latitude+"**"+marker.getPosition().longitude));
                 db.close();
+
             }
         }
+
+
+
         Log.d("Origin",String.valueOf(origin.latitude)+"-------"+String.valueOf(origin.longitude));
         float perpindahan = distance(origin.latitude,origin.longitude,location.getLatitude(),location.getLongitude());
         SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
@@ -265,6 +327,7 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
                 + output + "?" + params;
         return url;
     }
+
     private class ReadTask extends AsyncTask<String, Void, String> {
         @Override
         protected String doInBackground(String... url) {
@@ -389,6 +452,7 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
 
 //                mMap.clear();
                 mMarkerArray.clear();
+                gMarker.clear();
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject place = jsonArray.getJSONObject(i);
@@ -407,11 +471,20 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
                     LatLng latLng = new LatLng(latitude, longitude);
                     DbFitWalker db = new DbFitWalker(getApplicationContext());
                     db.open();
+
+
+
                     if(db.checkCoor(latLng.latitude,latLng.longitude)){
+
                         Marker added = mMap.addMarker(new MarkerOptions().position(latLng).title(placeName).icon(BitmapDescriptorFactory.fromResource(R.drawable.done)).snippet("Visited 1 times"));
+
+                        added.setTag(new Places(placeName,vicinity));
+                        gMarker.add(added);
                     }else{
                         Marker added = mMap.addMarker(new MarkerOptions().position(latLng).title(placeName).icon(BitmapDescriptorFactory.fromResource(R.drawable.mark)));
+                        added.setTag(new Places(placeName,vicinity));
                         mMarkerArray.add(added);
+//                        allMarker.add(added);
                     }
                     db.close();
 
@@ -421,6 +494,7 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
             } else if (result.getString(STATUS).equalsIgnoreCase(ZERO_RESULTS)) {
                 Toast.makeText(getBaseContext(), "Nothing Here :(",
                         Toast.LENGTH_LONG).show();
+
             }
 
         } catch (JSONException e) {
@@ -429,12 +503,14 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
             Log.e(TAG, "parseLocationResult: Error=" + e.getMessage());
         }
     }
+
     public void toProfile(View v){
         Intent i = new Intent(this,Profile.class);
         DbFitWalker db = new DbFitWalker(getApplicationContext());
         db.open();
         i.putExtra("count",String.valueOf(db.selectAll().size()));
         db.close();
+
         startActivity(i);
 
     }

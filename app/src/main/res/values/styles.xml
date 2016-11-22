@@ -7,30 +7,38 @@
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
     </style>
+
     <style name="LogTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
     </style>
+
     <style name="ProfileTheme">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/red</item>
         <item name="colorPrimaryDark">@color/redDark</item>
         <item name="colorAccent">@color/colorAccent</item>
     </style>
+
     <style name="WTF" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/red</item>
         <item name="colorPrimaryDark">@color/redDark</item>
         <item name="colorAccent">@color/colorAccent</item>
     </style>
-    <style name="MyActionBar" >
+
+    <style name="MyActionBar">
         <item name="colorPrimary">@color/red</item>
         <item name="colorPrimaryDark">@color/redDark</item>
         <item name="colorAccent">@color/redDark</item>
         <item name="android:textColor">@color/wallet_holo_blue_light</item>
 
     </style>
+
+    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+
+    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
 
 </resources>

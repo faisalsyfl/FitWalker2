@@ -8,7 +8,11 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import org.w3c.dom.Text;
@@ -18,6 +22,9 @@ import java.math.BigDecimal;
 import static sqrtstudio.com.fitwalker.AppConfig.SP;
 
 public class Profile extends AppCompatActivity {
+
+    ImageView imageView;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +68,10 @@ public class Profile extends AppCompatActivity {
 
         }
 
+
+        imageView = (ImageView) findViewById(R.id.imageView4);
+
+
     }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -73,6 +84,9 @@ public class Profile extends AppCompatActivity {
         // handle arrow click here
         if (item.getItemId() == android.R.id.home) {
             finish(); // close this activity and return to preview activity (if there is any)
+        }else if(item.getItemId() ==  R.id.mAdd){
+            Intent xyz = new Intent(this,AddShake.class);
+            startActivity(xyz);
         }
 
         return super.onOptionsItemSelected(item);
