@@ -5,6 +5,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Vibrator;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.widget.Toast;
@@ -23,12 +24,18 @@ public class AddShake extends AppCompatActivity implements SensorEventListener{
         mSensorListener = new ShakeEventListener();
         mSensorListener.setOnShakeListener(new ShakeEventListener.OnShakeListener() {
             public void onShake() {
-
-                Toast.makeText(AddShake.this, "No Nearby Friends Found :(", Toast.LENGTH_SHORT).show();
+                onShake2();
             }
         });
     }
 
+    public void onShake2(){
+        Vibrator az = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
+        // Vibrate for 500 milliseconds
+        az.vibrate(1000);
+        Toast.makeText(AddShake.this, "No Nearby Friends Found :(", Toast.LENGTH_SHORT).show();
+
+    }
     @Override
     public void onSensorChanged(SensorEvent event) {
 

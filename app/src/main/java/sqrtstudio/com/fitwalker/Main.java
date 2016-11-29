@@ -1,5 +1,7 @@
 package sqrtstudio.com.fitwalker;
 
+import android.*;
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -133,18 +135,18 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
             i.putExtra("visited","yes");
         }
         i.putExtra("cat","shake");
-        Vibrator az = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
+//        Vibrator az = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
         // Vibrate for 500 milliseconds
-        az.vibrate(1000);
+//        az.vibrate(1000);
         startActivity(i);
 
     }
     protected void createLocationRequest(){
         mLocationRequest = new LocationRequest();
         // 10 detik sekali meminta lokasi 10000ms = 10 detik
-        mLocationRequest.setInterval(20000);
+        mLocationRequest.setInterval(10000);
         // tapi tidak boleh lebih cepat dari 5 detik
-        mLocationRequest.setFastestInterval(10000);
+        mLocationRequest.setFastestInterval(500);
 
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
     }
@@ -221,6 +223,11 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
 //            mMap.setMyLocationEnabled(true);
             return;
         }
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, MY_PERMISSIONS_REQUEST);
+
+            return;
+        }
         Location location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         if (location == null) {
             location.setLatitude(-6.860422);
@@ -266,15 +273,14 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
         mMap.addCircle(new CircleOptions().center(origin).radius(10).fillColor(Color.argb(127,55,239,82)).clickable(false).strokeColor(Color.TRANSPARENT));
 
 
-//        loadNearByPlaces(origin.latitude,origin.longitude,"cafe");
-//        loadNearByPlaces(origin.latitude,origin.longitude,"school");
-        loadNearByPlaces(origin.latitude,origin.longitude,"mosque");
+        loadNearByPlaces(origin.latitude,origin.longitude,"cafe");
+        loadNearByPlaces(origin.latitude,origin.longitude,"school");
+//        loadNearByPlaces(origin.latitude,origin.longitude,"mosque");
         mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
             public boolean onMarkerClick(Marker marker) {
             mMap.addCircle(new CircleOptions().center(origin).radius(10).fillColor(Color.argb(127,55,239,82)).clickable(false).strokeColor(Color.TRANSPARENT));
                 marker.showInfoWindow();
-
                 return false;
             }
         });
@@ -294,7 +300,7 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
 //        currentPos.setPosition(new LatLng(location.getLatitude(),location.getLongitude()));
         for(Marker marker : mMarkerArray){
 //            Log.d("DIST",String.valueOf(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude)));
-            if(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude) <= 65){
+            if(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude) <= 30){
                 DbFitWalker db = new DbFitWalker(getApplicationContext());
                 db.open();
                 db.insertNew("Visited",marker.getPosition().latitude,marker.getPosition().longitude,0);

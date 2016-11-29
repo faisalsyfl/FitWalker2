@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:background="#f31f2e"
         android:minHeight="?attr/actionBarSize"
-        android:theme="?attr/actionBarTheme" />
+        android:theme="@style/ToolBarStyle" />
 
 
     <TextView

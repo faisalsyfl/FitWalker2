@@ -1,5 +1,6 @@
 package sqrtstudio.com.fitwalker;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
@@ -51,16 +52,14 @@ public class InfoWindow extends AppCompatActivity {
             ico.setImageResource(R.drawable.ceklis);
             tIco.setText("Not Visited");
         }
-        img = (ImageView) findViewById(R.id.imageView4);
+        img = (ImageView) findViewById(R.id.imageView1);
         i = new Intent(this,FullScreen.class);
 
         img.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ByteArrayOutputStream bs = new ByteArrayOutputStream();
-                bitm.compress(Bitmap.CompressFormat.PNG, 50, bs);
-                i.putExtra("byteArray", bs.toByteArray());
-                startActivity(i);
+                Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+                startActivityForResult(cameraIntent, CAMERA_PIC_REQUEST);
             }
         });
         SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
@@ -72,12 +71,12 @@ public class InfoWindow extends AppCompatActivity {
         super.onStart();
 
     }
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.main, menu);
-        return true;
-    }
+//    @Override
+//    public boolean onCreateOptionsMenu(Menu menu) {
+//        MenuInflater inflater = getMenuInflater();
+//        inflater.inflate(R.menu.main, menu);
+//        return true;
+//    }
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // handle arrow click here
@@ -86,5 +85,12 @@ public class InfoWindow extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == CAMERA_PIC_REQUEST) {
+            Bitmap image = (Bitmap) data.getExtras().get("data");
+            ImageView imageview = (ImageView) findViewById(R.id.imageView2);
+            imageview.setImageBitmap(image);
+        }
     }
 }
