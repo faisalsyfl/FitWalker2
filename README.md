@@ -15,6 +15,4 @@ Android Studio Fitness Application for every people in this world, people can ea
 
 6. Easy Login/Sign Up
 
-Documentation : 
-
-Apk : 
+Documentation & APK : https://github.com/faisalsyfl/FitWalker2/releases/tag/1.0
