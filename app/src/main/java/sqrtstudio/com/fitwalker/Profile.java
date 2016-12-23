@@ -44,6 +44,8 @@ public class Profile extends AppCompatActivity {
 
         TextView mcT = (TextView) findViewById(R.id.countMarkerText);
         mcT.setText(i.getStringExtra("count"));
+        ed.putString("count",i.getStringExtra("count"));
+        ed.commit();
 
         TextView  dT = (TextView) findViewById(R.id.distance);
         Float f1 = sp.getFloat("dist",0.0f);

@@ -13,6 +13,8 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.hardware.TriggerEvent;
+import android.hardware.TriggerEventListener;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.AsyncTask;
@@ -29,9 +31,12 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.Request.Method;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
@@ -59,29 +64,18 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import static sqrtstudio.com.fitwalker.AppConfig.GEOMETRY;
-import static sqrtstudio.com.fitwalker.AppConfig.GOOGLE_BROWSER_API_KEY;
-import static sqrtstudio.com.fitwalker.AppConfig.ICON;
-import static sqrtstudio.com.fitwalker.AppConfig.LATITUDE;
-import static sqrtstudio.com.fitwalker.AppConfig.LOCATION;
-import static sqrtstudio.com.fitwalker.AppConfig.LONGITUDE;
-import static sqrtstudio.com.fitwalker.AppConfig.NAME;
-import static sqrtstudio.com.fitwalker.AppConfig.OK;
-import static sqrtstudio.com.fitwalker.AppConfig.PLACE_ID;
-import static sqrtstudio.com.fitwalker.AppConfig.PROXIMITY_RADIUS;
-import static sqrtstudio.com.fitwalker.AppConfig.REFERENCE;
-import static sqrtstudio.com.fitwalker.AppConfig.SP;
-import static sqrtstudio.com.fitwalker.AppConfig.STATUS;
-import static sqrtstudio.com.fitwalker.AppConfig.SUPERMARKET_ID;
-import static sqrtstudio.com.fitwalker.AppConfig.TAG;
-import static sqrtstudio.com.fitwalker.AppConfig.VICINITY;
-import static sqrtstudio.com.fitwalker.AppConfig.ZERO_RESULTS;
+import static com.android.volley.Request.Method.*;
+import static sqrtstudio.com.fitwalker.AppConfig.*;
 
-public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener,LocationListener{
+
+public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener,LocationListener,SensorEventListener{
 
     private static final int MY_PERMISSIONS_REQUEST = 99;//int bebas, maks 1 byte
 
+    private SensorManager mSensorManager;
+    private ShakeEventListener mSensorListener;
 
     private GoogleMap mMap;
     private LatLng origin;
@@ -90,8 +84,14 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
     LocationRequest mLocationRequest;
     private ArrayList<Marker> mMarkerArray = new ArrayList<Marker>();
     private ArrayList<Marker> gMarker = new ArrayList<Marker>();
+    private ArrayList<Marker> pMarker = new ArrayList<Marker>();
     LocationManager locManager;
 
+    private Boolean activityRunning = false;
+
+    /**
+     * Class storing every place in the system
+     */
     public static class Places{
         public String desc;
         public String add;
@@ -101,6 +101,12 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
             add = b;
         }
     }
+
+    /**
+     * on Create get player LastLogin, if different. Delete all green marker have been visited
+     * build Google API
+     * @param savedInstanceState
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -123,24 +129,57 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-    }
-    public void toInfoWindow(Marker m){
-        Places as = (Places)m.getTag();
-        Intent i = new Intent(this,InfoWindow.class);
-        i.putExtra("namap",as.desc);
-        i.putExtra("namaa",as.add);
-        if(m.getSnippet() == null){
-            i.putExtra("visited","not");
-        }else{
-            i.putExtra("visited","yes");
-        }
-        i.putExtra("cat","shake");
-//        Vibrator az = (Vibrator) this.getSystemService(Context.VIBRATOR_SERVICE);
-        // Vibrate for 500 milliseconds
-//        az.vibrate(1000);
-        startActivity(i);
+
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+
+        /**
+         * GET ID FOR BETTER LIFE
+         */
+        StringRequest postRequest = new StringRequest(Request.Method.POST, SBID_URL,
+                new Response.Listener<String>()
+                {
+                    @Override
+                    public void onResponse(String response) {
+                        // menampilkan respone
+                        Log.d("Response ID", response);
+                        SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
+                        SharedPreferences.Editor ed = sp.edit();
+                        String mysz2 = response.replaceAll("\\s","");
+                        ed.putString("id",mysz2);
+                        ed.commit();
+
+                    }
+                },
+                new Response.ErrorListener()
+                {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        // error
+
+                    }
+                }
+        ) {
+            @Override
+            protected Map<String, String> getParams()
+            {         // Menambahkan parameters post
+                Map<String, String>  params = new HashMap<String, String>();
+                SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
+                SharedPreferences.Editor ed = sp.edit();
+                params.put("name",sp.getString("owner","FUCK"));
+
+                return params;
+            }
+        };
+        AppController.getInstance().addToRequestQueue(postRequest);
 
     }
+
+
+
+    /**
+     * Request location every 10 second
+     * Request location high accuracy
+     */
     protected void createLocationRequest(){
         mLocationRequest = new LocationRequest();
         // 10 detik sekali meminta lokasi 10000ms = 10 detik
@@ -150,6 +189,10 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
 
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
     }
+
+    /**
+     * enable google location services API
+     */
     protected synchronized void buildGoogleApiClient() {
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -174,22 +217,143 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
             return;
         }
     }
+
     @Override
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
+        ///STATUS TRUE
+        StringRequest postRequest = new StringRequest(Request.Method.POST, UPDATE_URL,
+                new Response.Listener<String>()
+                {
+                    @Override
+                    public void onResponse(String response) {
+                        // menampilkan respone
+                        Log.d("Response START", response);
+                    }
+                },
+                new Response.ErrorListener()
+                {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        // error
+                        Log.e(TAG, "onErrorResponse: Error= " + error);
+                        Log.e(TAG, "onErrorResponse: Error= " + error.getMessage());
+                    }
+                }
+        ) {
+            @Override
+            protected Map<String, String> getParams()
+            {
+                // Menambahkan parameters post
+                Map<String, String>  params = new HashMap<String, String>();
+                SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
+                params.put("id", sp.getString("id",null));
+                params.put("stats","1");
+
+                return params;
+            }
+        };
+        AppController.getInstance().addToRequestQueue(postRequest);
     }
+
+
     @Override
     protected void onStop() {
         mGoogleApiClient.disconnect();
+        StringRequest postRequest = new StringRequest(Request.Method.POST, UPDATE_URL,
+                new Response.Listener<String>()
+                {
+                    @Override
+                    public void onResponse(String response) {
+                        // menampilkan respone
+                        Log.d("Response STOP", response);
+                    }
+                },
+                new Response.ErrorListener()
+                {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        // error
+                        Log.e(TAG, "onErrorResponse: Error= " + error);
+                        Log.e(TAG, "onErrorResponse: Error= " + error.getMessage());
+                    }
+                }
+        ) {
+            @Override
+            protected Map<String, String> getParams()
+            {
+                // Menambahkan parameters post
+                Map<String, String>  params = new HashMap<String, String>();
+                SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
+                SharedPreferences.Editor ed = sp.edit();
+                params.put("id", sp.getString("id",null));
+                params.put("stats","0");
+
+                return params;
+            }
+        };
+        AppController.getInstance().addToRequestQueue(postRequest);
         super.onStop();
     }
 
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        activityRunning = true;
+        Sensor countSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+        if(countSensor != null) {
+            mSensorManager.registerListener((SensorEventListener) this, countSensor, SensorManager.SENSOR_DELAY_UI);
+
+        } else {
+            Toast.makeText(this, "Count sensor not available!", Toast.LENGTH_LONG).show();
+        }
+
+
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        activityRunning = false;
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)!= PackageManager.PERMISSION_GRANTED){
+            // tampilkan dialog minta ijin
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION,android.Manifest.permission.CAMERA}, MY_PERMISSIONS_REQUEST);
+//            mMap.setMyLocationEnabled(true);
+            return;
+        }
+        Location location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        if (location == null) {
+            location.setLatitude(-6.860422);
+            location.setLongitude(107.589905);
+        }
+        origin = new LatLng(location.getLatitude(),location.getLongitude());
+        me = mMap.addMarker(new MarkerOptions().position(new LatLng(location.getLatitude(),location.getLongitude())).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.current)));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(),location.getLongitude()),17));
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient,mLocationRequest,this);
+        firstHandleLocation(origin,"mosque");
+//        firstHandleLocation(origin,"park");
+        handlePlayer();
+
+    }
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
+     * This is where we can add markers or lines, add listeners or move the camera.
      * If Google Play services is not installed on the device, the user will be prompted to install
      * it inside the SupportMapFragment. This method will only be triggered once the user has
      * installed Google Play services and returned to the app.
@@ -197,7 +361,6 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-
 //        mMap.getUiSettings().setCompassEnabled(true);
 //        mMap.getUiSettings().setZoomControlsEnabled(true);
         try {
@@ -211,243 +374,116 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
         } catch (Resources.NotFoundException e) {
             Log.e("MapsActivityRaw", "Can't find style.", e);
         }
-    }
-
-
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-
-        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)!= PackageManager.PERMISSION_GRANTED){
-            // tampilkan dialog minta ijin
-            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, MY_PERMISSIONS_REQUEST);
-//            mMap.setMyLocationEnabled(true);
-            return;
-        }
-        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, MY_PERMISSIONS_REQUEST);
-
-            return;
-        }
-        Location location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-        if (location == null) {
-            location.setLatitude(-6.860422);
-            location.setLongitude(107.589905);
-        }
-        origin = new LatLng(location.getLatitude(),location.getLongitude());
-        me = mMap.addMarker(new MarkerOptions().position(new LatLng(location.getLatitude(),location.getLongitude())).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.current)));
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(),location.getLongitude()),17));
-        handleNewLocation(location);
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient,mLocationRequest,this);
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
 
     }
+    private void handlePlayer(){
+        JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, SELECT_URL, null,
+                new Response.Listener<JSONObject>()
+                {
+                    @Override
+                    public void onResponse(JSONObject response) {
 
-    @Override
-    protected void onResume() {
-        super.onResume();
+                        Log.i(TAG, "onResponse: playerResult= " + response.toString());
+                        parsePlayer(response);
+                    }
+                },
+                new Response.ErrorListener()
+                {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        //menampilkan error pada logcat
+                        Log.e(TAG, "onErrorResponse: Error= " + error);
+                        Log.e(TAG, "onErrorResponse: Error= " + error.getMessage());
 
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-    }
-
-
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
-    }
-    private void handleNewLocation(Location location) {
-//        Toast.makeText(getBaseContext(), String.valueOf((float)((double) Math.round(perpindahan*100)/100))+"---"+String.valueOf(sp.getFloat("dist",0)), Toast.LENGTH_LONG).show();
-        mMap.clear();
-        origin = new LatLng(location.getLatitude(),location.getLongitude());
-
-        MarkerOptions mo = new MarkerOptions().position(origin).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.current));
-        me =  mMap.addMarker(mo);
-
-        mMap.addCircle(new CircleOptions().center(origin).radius(10).fillColor(Color.argb(127,55,239,82)).clickable(false).strokeColor(Color.TRANSPARENT));
-
-
-        loadNearByPlaces(origin.latitude,origin.longitude,"cafe");
-        loadNearByPlaces(origin.latitude,origin.longitude,"school");
-//        loadNearByPlaces(origin.latitude,origin.longitude,"mosque");
-        mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
-            @Override
-            public boolean onMarkerClick(Marker marker) {
-            mMap.addCircle(new CircleOptions().center(origin).radius(10).fillColor(Color.argb(127,55,239,82)).clickable(false).strokeColor(Color.TRANSPARENT));
-                marker.showInfoWindow();
-                return false;
-            }
-        });
-
-//        Log.d("Distance", String.valueOf(distance(location.getLatitude(),destination.latitude,location.getLongitude(),destination.longitude,0,0)));
-    }
-
-    @Override
-    public void onLocationChanged(Location location) {
-        mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
-            @Override
-            public void onInfoWindowClick(Marker marker) {
-                toInfoWindow(marker);
-
-            }
-        });
-//        currentPos.setPosition(new LatLng(location.getLatitude(),location.getLongitude()));
-        for(Marker marker : mMarkerArray){
-//            Log.d("DIST",String.valueOf(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude)));
-            if(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude) <= 30){
-                DbFitWalker db = new DbFitWalker(getApplicationContext());
-                db.open();
-                db.insertNew("Visited",marker.getPosition().latitude,marker.getPosition().longitude,0);
-                Log.d("INSERTED",String.valueOf(marker.getPosition().latitude+"**"+marker.getPosition().longitude));
-                db.close();
-
-            }
-        }
-
-
-
-        Log.d("Origin",String.valueOf(origin.latitude)+"-------"+String.valueOf(origin.longitude));
-        float perpindahan = distance(origin.latitude,origin.longitude,location.getLatitude(),location.getLongitude());
-        SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
-        SharedPreferences.Editor ed = sp.edit();
-        ed.putFloat("dist",sp.getFloat("dist",0)+((float)((double) Math.round(perpindahan*100)/100)));
-        ed.commit();
-        handleNewLocation(location);
-    }
-    private String getMapsApiDirectionsUrl(LatLng origin,LatLng dest) {
-        String waypoints = "origin="
-                + origin.latitude + "," + origin.longitude
-                + "&destination=" + dest.latitude + ","
-                + dest.longitude;
-
-        String sensor = "sensor=false";
-        String params = waypoints + "&" + sensor;
-        String output = "json";
-        String url = "https://maps.googleapis.com/maps/api/directions/"
-                + output + "?" + params;
-        return url;
-    }
-
-    private class ReadTask extends AsyncTask<String, Void, String> {
-        @Override
-        protected String doInBackground(String... url) {
-            String data = "";
-            try {
-                HttpConnection http = new HttpConnection();
-                data = http.readUrl(url[0]);
-            } catch (Exception e) {
-                Log.d("Background Task", e.toString());
-            }
-            return data;
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            super.onPostExecute(result);
-            new ParserTask().execute(result);
-        }
-    }
-    private class ParserTask extends
-            AsyncTask<String, Integer, List<List<HashMap<String, String>>>> {
-
-        @Override
-        protected List<List<HashMap<String, String>>> doInBackground(
-                String... jsonData) {
-
-            JSONObject jObject;
-            List<List<HashMap<String, String>>> routes = null;
-
-            try {
-                jObject = new JSONObject(jsonData[0]);
-                PathJSONParser parser = new PathJSONParser();
-                routes = parser.parse(jObject);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            return routes;
-        }
-
-        @Override
-        protected void onPostExecute(List<List<HashMap<String, String>>> routes) {
-            ArrayList<LatLng> points = null;
-            PolylineOptions polyLineOptions = null;
-
-            // traversing through routes
-            for (int i = 0; i < routes.size(); i++) {
-                points = new ArrayList<LatLng>();
-                polyLineOptions = new PolylineOptions();
-                List<HashMap<String, String>> path = routes.get(i);
-
-                for (int j = 0; j < path.size(); j++) {
-                    HashMap<String, String> point = path.get(j);
-
-                    double lat = Double.parseDouble(point.get("lat"));
-                    double lng = Double.parseDouble(point.get("lng"));
-                    LatLng position = new LatLng(lat, lng);
-
-                    points.add(position);
+                    }
                 }
+        );
 
-                polyLineOptions.addAll(points);
-                polyLineOptions.width(10);
-                polyLineOptions.color(Color.RED);
+        AppController.getInstance().addToRequestQueue(request);
+    }
+    private void parsePlayer(JSONObject result){
+        String id,name, done,meter,photo,stats;
+        double latitude, longitude;
+
+
+        try {
+            JSONArray jsonArray = result.getJSONArray("users");
+
+            if (result.getString("success").equalsIgnoreCase("1")) {
+
+                for (int i = 0; i < jsonArray.length(); i++) {
+                    JSONObject user = jsonArray.getJSONObject(i);
+
+                    id = user.getString("id");
+
+                    name = user.getString("name");
+
+                    latitude = user.getDouble("latitude");
+                    longitude = user.getDouble("longitude");
+                    LatLng latLng = new LatLng(latitude, longitude);
+                    if (!user.isNull("done")) {
+                        done = user.getString("done");
+                    }
+
+                    meter = user.getString("meter");
+
+                    if (!user.isNull("photo")) {
+                        photo = user.getString("photo");
+                    }
+
+                    stats = user.getString("stats");
+
+                    SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
+                    SharedPreferences.Editor ed = sp.edit();
+                    String hm = sp.getString("id",null);
+                    if(stats.equals("1") && (!id.equals(sp.getString("id",null)))){
+                        MarkerOptions mo = new MarkerOptions().position(latLng).title(name).icon(BitmapDescriptorFactory.fromResource(R.drawable.other)).snippet("Walked: "+meter+" m");
+                        pMarker.add(mMap.addMarker(mo));
+                    }
+
+                }
+            } else if (result.getString("success").equalsIgnoreCase("0")){
+
             }
+        } catch (JSONException e) {
 
-            mMap.addPolyline(polyLineOptions);
+            e.printStackTrace();
+            Log.e(TAG, "parseLocationResult: Error=" + e.getMessage());
         }
     }
-    public float distance (double lat_a, double lng_a, double lat_b, double lng_b )
-    {
-        double earthRadius = 3958.75;
-        double latDiff = Math.toRadians(lat_b-lat_a);
-        double lngDiff = Math.toRadians(lng_b-lng_a);
-        double a = Math.sin(latDiff /2) * Math.sin(latDiff /2) +
-                Math.cos(Math.toRadians(lat_a)) * Math.cos(Math.toRadians(lat_b)) *
-                        Math.sin(lngDiff /2) * Math.sin(lngDiff /2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        double distance = earthRadius * c;
-
-        int meterConversion = 1609;
-
-        return new Float(distance * meterConversion).floatValue();
-    }
-    private void loadNearByPlaces(double latitude, double longitude,String type) {
-//YOU Can change this type at your own will, e.g hospital, cafe, restaurant.... and see how it all works
-        StringBuilder googlePlacesUrl =
-                new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
-        googlePlacesUrl.append("location=").append(latitude).append(",").append(longitude);
+    private void firstHandleLocation(LatLng firstLoc,String type){
+        StringBuilder googlePlacesUrl = new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
+        googlePlacesUrl.append("location=").append(firstLoc.latitude).append(",").append(firstLoc.longitude);
         googlePlacesUrl.append("&radius=").append(PROXIMITY_RADIUS);
         googlePlacesUrl.append("&types=").append(type);
         googlePlacesUrl.append("&sensor=true");
         googlePlacesUrl.append("&key=" + GOOGLE_BROWSER_API_KEY);
-        JsonObjectRequest request = new JsonObjectRequest(googlePlacesUrl.toString(),
-                new Response.Listener<JSONObject>() {
-                    @Override
-                    public void onResponse(JSONObject result) {
 
-                        Log.i(TAG, "onResponse: Result= " + result.toString());
-                        parseLocationResult(result);
+        JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, googlePlacesUrl.toString(), null,
+                new Response.Listener<JSONObject>()
+                {
+                    @Override
+                    public void onResponse(JSONObject response) {
+
+                        Log.i(TAG, "onResponse: firstResult= " + response.toString());
+                        firstParse(response);
                     }
                 },
-                new Response.ErrorListener() {
+                new Response.ErrorListener()
+                {
                     @Override
                     public void onErrorResponse(VolleyError error) {
+                        //menampilkan error pada logcat
                         Log.e(TAG, "onErrorResponse: Error= " + error);
                         Log.e(TAG, "onErrorResponse: Error= " + error.getMessage());
+
                     }
-                });
+                }
+        );
 
         AppController.getInstance().addToRequestQueue(request);
     }
-
-    private void parseLocationResult(JSONObject result) {
-
+    private void firstParse(JSONObject result){
         String id, place_id, placeName = null, reference, icon, vicinity = null;
         double latitude, longitude;
 
@@ -455,10 +491,8 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
             JSONArray jsonArray = result.getJSONArray("results");
 
             if (result.getString(STATUS).equalsIgnoreCase(OK)) {
-
-//                mMap.clear();
-                mMarkerArray.clear();
-                gMarker.clear();
+//                mMarkerArray.clear();
+//                gMarker.clear();
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject place = jsonArray.getJSONObject(i);
@@ -475,34 +509,27 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
                             .getDouble(LONGITUDE);
 
                     LatLng latLng = new LatLng(latitude, longitude);
+
                     DbFitWalker db = new DbFitWalker(getApplicationContext());
                     db.open();
 
-
-
                     if(db.checkCoor(latLng.latitude,latLng.longitude)){
-
                         Marker added = mMap.addMarker(new MarkerOptions().position(latLng).title(placeName).icon(BitmapDescriptorFactory.fromResource(R.drawable.done)).snippet("Visited 1 times"));
-
                         added.setTag(new Places(placeName,vicinity));
                         gMarker.add(added);
                     }else{
+
                         Marker added = mMap.addMarker(new MarkerOptions().position(latLng).title(placeName).icon(BitmapDescriptorFactory.fromResource(R.drawable.mark)));
                         added.setTag(new Places(placeName,vicinity));
                         mMarkerArray.add(added);
-//                        allMarker.add(added);
                     }
                     db.close();
 
                 }
-//                Toast.makeText(getBaseContext(), jsonArray.length() + " Supermarkets found!",
-//                        Toast.LENGTH_LONG).show();
             } else if (result.getString(STATUS).equalsIgnoreCase(ZERO_RESULTS)) {
-                Toast.makeText(getBaseContext(), "Nothing Here :(",
-                        Toast.LENGTH_LONG).show();
+
 
             }
-
         } catch (JSONException e) {
 
             e.printStackTrace();
@@ -510,6 +537,201 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
         }
     }
 
+
+    @Override
+    public void onLocationChanged(Location location) {
+        mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
+            @Override
+            public void onInfoWindowClick(final Marker marker) {
+                int stats = 0;
+
+                for(Marker mrk : pMarker){
+                    if(mrk.getTitle().equals(marker.getTitle()) && stats == 0){
+                        stats = 1;
+                        toOtherProfile(marker.getTitle());
+                    }
+                }
+                if(marker.getTitle().equals("You")){
+                    toProfile2();
+                }else if(stats == 0){
+                    Log.d("TITLE",marker.getTitle());
+                    toInfoWindow(marker);
+                }
+            }
+        });
+
+//        currentPos.setPosition(new LatLng(location.getLatitude(),location.getLongitude()));
+        for(Marker marker : mMarkerArray){
+            if(distance(origin.latitude,origin.longitude,marker.getPosition().latitude,marker.getPosition().longitude) <= 25){
+                DbFitWalker db = new DbFitWalker(getApplicationContext());
+                db.open();
+                db.insertNew("Visited",marker.getPosition().latitude,marker.getPosition().longitude,0);
+                Log.d("INSERTED",String.valueOf(marker.getPosition().latitude+"**"+marker.getPosition().longitude));
+                db.close();
+
+                Marker added = mMap.addMarker(new MarkerOptions().position(marker.getPosition()).title(marker.getTitle()).icon(BitmapDescriptorFactory.fromResource(R.drawable.done)).snippet("Visited 1 times"));
+//                Log.d("GREEN",as.add+"--"+as.desc);
+                added.setTag(marker.getTag());
+                gMarker.add(added);
+                marker.remove();
+
+            }
+        }
+        Log.d("Origin",String.valueOf(origin.latitude)+"-------"+String.valueOf(origin.longitude));
+
+        float perpindahan = distance(origin.latitude,origin.longitude,location.getLatitude(),location.getLongitude());
+        SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
+        SharedPreferences.Editor ed = sp.edit();
+        ed.putFloat("dist",sp.getFloat("dist",0)+((float)((double) Math.round(perpindahan*100)/100)));
+        ed.commit();
+
+        //handle new location
+        for(Marker m : pMarker){
+            m.remove();
+        }
+        handlePlayer();
+        handleNewLocation(location);
+    }
+    private void handleNewLocation(final Location location) {
+//        Toast.makeText(getBaseContext(), String.valueOf((float)((double) Math.round(perpindahan*100)/100))+"---"+String.valueOf(sp.getFloat("dist",0)), Toast.LENGTH_LONG).show();
+//        mMap.clear();
+//        Toast.makeText(getBaseContext(), me.getPosition()+"---"+location,
+//                Toast.LENGTH_SHORT).show();
+        me.remove();
+        origin = new LatLng(location.getLatitude(),location.getLongitude());
+        MarkerOptions mo = new MarkerOptions().position(origin).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.current));
+        me =  mMap.addMarker(mo);
+//        mMap.addCircle(new CircleOptions().center(origin).radius(20).fillColor(Color.argb(127,55,239,82)).clickable(false).strokeColor(Color.TRANSPARENT));
+
+        StringRequest postRequest = new StringRequest(Request.Method.POST, UPDATE_URL,
+                new Response.Listener<String>()
+                {
+                    @Override
+                    public void onResponse(String response) {
+                        // menampilkan respone
+                        Log.d("Response POST", response);
+                    }
+                },
+                new Response.ErrorListener()
+                {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        // error
+                        Log.e(TAG, "onErrorResponse: Error= " + error);
+                        Log.e(TAG, "onErrorResponse: Error= " + error.getMessage());
+                    }
+                }
+        ) {
+            @Override
+            protected Map<String, String> getParams()
+            {
+                // Menambahkan parameters post
+                Map<String, String>  params = new HashMap<String, String>();
+                SharedPreferences sp = getSharedPreferences(SP,MODE_PRIVATE);
+                params.put("id", sp.getString("id",null));
+                params.put("name", sp.getString("owner",null));
+                params.put("lat", String.valueOf(location.getLatitude()));
+                params.put("long", String.valueOf(location.getLongitude()));
+                params.put("done", sp.getString("count",null));
+                params.put("meter", String.valueOf(sp.getFloat("dist",0)));
+
+                params.put("stats","1");
+
+                return params;
+            }
+        };
+        AppController.getInstance().addToRequestQueue(postRequest);
+
+
+
+
+        mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
+            @Override
+            public boolean onMarkerClick(Marker marker) {
+                mMap.addCircle(new CircleOptions().center(origin).radius(20).fillColor(Color.argb(127,55,239,82)).clickable(false).strokeColor(Color.TRANSPARENT));
+                marker.showInfoWindow();
+                return false;
+            }
+        });
+
+//        Log.d("Distance", String.valueOf(distance(location.getLatitude(),destination.latitude,location.getLongitude(),destination.longitude,0,0)));
+    }
+
+    public float distance (double lat_a, double lng_a, double lat_b, double lng_b )
+    {
+        double earthRadius = 3958.75;
+        double latDiff = Math.toRadians(lat_b-lat_a);
+        double lngDiff = Math.toRadians(lng_b-lng_a);
+        double a = Math.sin(latDiff /2) * Math.sin(latDiff /2) +
+                Math.cos(Math.toRadians(lat_a)) * Math.cos(Math.toRadians(lat_b)) *
+                        Math.sin(lngDiff /2) * Math.sin(lngDiff /2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        double distance = earthRadius * c;
+
+        int meterConversion = 1609;
+
+        return new Float(distance * meterConversion).floatValue();
+    }
+    /**
+     * onInfoWindowClick Listener
+     * get Tag for every places
+     * @param m
+     */
+    public void toInfoWindow(Marker m){
+        Places as = (Places)m.getTag();
+        Intent i = new Intent(this,InfoWindow.class);
+        i.putExtra("namap",as.desc);
+        i.putExtra("namaa",as.add);
+        if(m.getSnippet() == null){
+            i.putExtra("visited","not");
+        }else{
+            i.putExtra("visited","yes");
+        }
+        i.putExtra("cat","shake");
+        startActivity(i);
+
+    }
+    public void toOtherProfile(final String title){
+
+        StringRequest postRequest = new StringRequest(Request.Method.POST, SABID_URL,
+                new Response.Listener<String>()
+                {
+                    @Override
+                    public void onResponse(String response) {
+                        // menampilkan respone
+                        Log.d("Response SABID", response);
+                        toOtherProfile2(response);
+                    }
+                },
+                new Response.ErrorListener()
+                {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        // error
+
+                    }
+                }
+        ) {
+            @Override
+            protected Map<String, String> getParams()
+            {         // Menambahkan parameters post
+                Map<String, String>  params = new HashMap<String, String>();
+                params.put("name",title);
+
+                return params;
+            }
+        };
+        AppController.getInstance().addToRequestQueue(postRequest);
+
+
+    }
+    public void toOtherProfile2(String resp){
+        Intent i = new Intent(this,OtherProfile.class);
+        String[] split = resp.split("\\+");
+        i.putExtra("data",split);
+        startActivity(i);
+
+    }
     public void toProfile(View v){
         Intent i = new Intent(this,Profile.class);
         DbFitWalker db = new DbFitWalker(getApplicationContext());
@@ -518,6 +740,26 @@ public class Main extends FragmentActivity implements OnMapReadyCallback,GoogleA
         db.close();
 
         startActivity(i);
+    }
+    public void toProfile2(){
+        Intent i = new Intent(this,Profile.class);
+        DbFitWalker db = new DbFitWalker(getApplicationContext());
+        db.open();
+        i.putExtra("count",String.valueOf(db.selectAll().size()));
+        db.close();
+
+        startActivity(i);
+    }
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if(activityRunning) {
+            Toast.makeText(getBaseContext(), String.valueOf(event.values[0]+" x`Step"),
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
     }
 }

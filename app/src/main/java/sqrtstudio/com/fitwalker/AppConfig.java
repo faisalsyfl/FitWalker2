@@ -36,4 +36,22 @@ public final class AppConfig {
     public static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 10; // 10 meters
     // The minimum time between updates in milliseconds
     public static final long MIN_TIME_BW_UPDATES = 1000 * 60 * 1; // 1 minute
+
+    //URL to our login.php file, url bisa diganti sesuai dengan alamat server kita
+    public static final String ADD_URL = "http://fitwalker.esy.es/add.php";
+    public static final String SELECT_URL = "http://fitwalker.esy.es/select.php";
+    public static final String SBID_URL = "http://fitwalker.esy.es/sbid.php";
+    public static final String UPDATE_URL = "http://fitwalker.esy.es/update.php";
+    public static final String SABID_URL = "http://fitwalker.esy.es/sabid.php";
+
+
+    //Keys for email and password as defined in our $_POST['key'] in login.php
+    public static final String KEY_EMAIL = "email";
+    public static final String KEY_PASSWORD = "password";
+
+    //If server response is equal to this that means login is successful
+    public static final String RES_SUCCESS = "success";
+    public static final String RES_FAILED = "failed";
+
+
 }
