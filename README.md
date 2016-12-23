@@ -3,6 +3,8 @@
 
 Android Studio Fitness Application for every people in this world, people can easily know where he/she is in maps and detect every point of interest near phone.
 
+ Watch our video on youtube! https://www.youtube.com/watch?v=3GwBoOW3u9Q 
+ 
 1. Support Google Maps v2.0
 
 2. Support Realtime friend location
